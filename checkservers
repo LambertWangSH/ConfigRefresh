@@ -1,1 +1,84 @@
-#Checking servers availbility and ping returning time
+#Checking servers availbility including ping returning time then refresh the config file and restart
+#!/bin/bash
+
+# define ping return time baseline
+baseline=2000  
+# define port, may not need
+port="replace by your port"
+# define current server in config file , this variate is to be written in a single file called currentserver.name
+currentserver="unknow"
+# define current server port in config file , this variate is to be written in a single file called currentport.name, you may not need this
+currentport="unknowport"
+
+# read serverlist.txt , serverlist.txt is a file stored all the possible working domains, one line one domain name
+while read p
+do
+# get variate from ping command p is each line read from serverlist.txt
+	time=`ping -c1 $p` 
+# if the server is pinable
+	if [ $? -eq 0 ]; then
+#	get exactly time from a ping returned message, lazy way
+		time=`echo ${time##*time=}`	
+		time=`echo ${time%% ms ---*}`		
+# to judge if there is a decimal string
+		result=`echo $time | grep [.]`  
+# if it is a decimal string, then remove the dot,make it to integer , actually it is still a string.
+		if [ "$result" != "" ]; then
+		time=`echo ${time%%.*}`
+		fi
+# compare ping return time with baseline, if return time is less than baseline, overwite baseline, and make another variate as $fast to store this domain name
+		if [ $((baseline-time)) -gt 0 ]; then
+			baseline=$time
+			fast=$p
+		fi
+	else
+		echo &> /dev/null
+	fi
+
+# make a simple progress bar if you wish
+# echo -ne ">"
+
+done <./serverlist.txt
+
+
+# echo the select fast domain you should use , attached the return time
+echo "pls use --"$fast"--while response time is "$baseline"ms"
+
+
+
+# read currentserver to get what domaiin is currently in using
+while read q
+do
+# prompt out if you wish
+echo "current server is :"$q
+# revise your config file , search the last domain name and replaced by new one
+sed -i "s/$q/$fast/g" ./replace by your config file
+done <./currentserver.name
+
+# you can delete below 'while' if you do not have port issue . or create a file called currentport.name  to store the port is currently same in config file , find a way to replace
+#while read r
+#do
+#echo "current port is :"$r
+## revise your config file, search the last port and replaced by new port
+#sed -i "s/$r/$port/g" ./config.json
+#done <./currentport.name
+
+
+# refresh currentserver.name and currentport.name
+echo $fast &>currentserver.name
+echo $port &>currentport.name
+# echo out if you wish
+echo "current server has been replaced to "$fast
+echo "current port has been replaced to "$port
+
+
+# your command to restart the service to make config take effective
+# for example : systemctl restart ABC
+
+# save the log for changes
+now="$(date +"%D ""%T")"
+echo "Config refreshed at "$now &>>./change.log
+
+
+
+
